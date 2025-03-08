@@ -8,7 +8,7 @@
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://d3js.org https://cdnjs.cloudflare.com;
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: blob:;
-    connect-src 'self' data: blob: https://*.dropboxusercontent.com;
+    connect-src 'self' data: blob: https://*.dropboxusercontent.com https://dl.dropboxusercontent.com https://content.dropboxapi.com;
   ">
   <style>
     body {
@@ -566,17 +566,25 @@
       fetch(dropboxUrl, {
         method: 'GET',
         headers: {
-          'Accept': 'text/csv'
-        }
+          'Accept': 'text/csv',
+          'Content-Type': 'text/csv; charset=Windows-1252',
+          'Access-Control-Allow-Origin': '*'
+        },
+        mode: 'cors'
       })
         .then(response => {
           if (!response.ok) {
-            throw new Error("Arquivo não encontrado no Dropbox");
+            throw new Error(`Erro HTTP: ${response.status}`);
           }
           return response.text();
         })
         .then(csvData => {
           try {
+            // Verificar se o conteúdo está vazio
+            if (!csvData || csvData.trim() === '') {
+              throw new Error("O arquivo CSV está vazio");
+            }
+
             console.log("Conteúdo CSV bruto:", csvData.substring(0, 200) + "..."); // Mostrar início do arquivo
             const data = d3.csvParse(csvData);
             console.log("Colunas encontradas:", data.columns);
