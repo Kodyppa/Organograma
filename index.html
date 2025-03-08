@@ -8,7 +8,7 @@
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://d3js.org https://cdnjs.cloudflare.com;
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: blob:;
-    connect-src 'self' data: blob: https://*.dropboxusercontent.com https://dl.dropboxusercontent.com https://content.dropboxapi.com;
+    connect-src 'self' data: blob: https://*.dropboxusercontent.com;
   ">
   <style>
     body {
@@ -78,16 +78,16 @@
       font-size: 12px;
       font-family: Arial, sans-serif;
     }
-    
+
     .node text tspan {
       fill: #333;
     }
-    
+
     .node text tspan.sigla {
       font-weight: bold;
       fill: #2C73B4;
     }
-    
+
     path.link {
       fill: none;
       stroke: #ccc;
@@ -125,14 +125,14 @@
 
     function buildHierarchy(data) {
       console.log("Dados recebidos:", data);
-      
+
       // Criar o nó raiz fixo para o Ministério da Saúde
       const root = {
         name: "Ministério da Saúde",
         sigla: "MS",
         children: []
       };
-      
+
       const nodeMap = {};
       nodeMap["1"] = root;
 
@@ -145,9 +145,9 @@
 
       data.forEach(d => {
         const sub = String(d["SUBORDINAÇÃO"] || "").trim();
-        
+
         console.log("Processando nó:", d["UNIDADE"], "Subordinação:", sub);
-        
+
         const node = {
           name: d["UNIDADE"],
           sigla: d["SIGLA"] || "",
@@ -160,15 +160,15 @@
           nodeMap[sub] = node;
           return;
         }
-        
+
         nodeMap[sub] = node;
-        
+
         const parts = sub.split('.');
         if (parts.length > 1) {
           parts.pop();
           const parentCode = parts.join('.');
           console.log("Buscando pai:", parentCode);
-          
+
           if (nodeMap[parentCode]) {
             console.log("Pai encontrado:", nodeMap[parentCode].name);
             nodeMap[parentCode].children.push(node);
@@ -189,7 +189,7 @@
     function loadCSVFile() {
       const fileInput = document.getElementById('file-input');
       const file = fileInput.files[0];
-      
+
       if (!file) {
         document.getElementById('error-message').textContent = "Por favor, selecione um arquivo CSV.";
         return;
@@ -201,7 +201,7 @@
         try {
           const data = d3.csvParse(csvData);
           console.log("CSV parseado:", data);
-          
+
           if (!data || data.length === 0) {
             document.getElementById('error-message').textContent = "Arquivo CSV vazio ou inválido.";
             return;
@@ -209,16 +209,16 @@
 
           // Verificar se as colunas necessárias existem (considerando possíveis encodings diferentes)
           const columns = data.columns.map(col => col.normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
-          const hasSubordinacao = columns.some(col => 
-            col.toUpperCase() === "SUBORDINACAO" || 
-            col.toUpperCase() === "SUBORDINAÇÃO" || 
+          const hasSubordinacao = columns.some(col =>
+            col.toUpperCase() === "SUBORDINACAO" ||
+            col.toUpperCase() === "SUBORDINAÇÃO" ||
             col.toUpperCase() === "SUBORDINAO"
           );
           const hasUnidade = columns.some(col => col.toUpperCase() === "UNIDADE");
           const hasSigla = columns.some(col => col.toUpperCase() === "SIGLA");
 
           if (!hasSubordinacao || !hasUnidade || !hasSigla) {
-            document.getElementById('error-message').textContent = 
+            document.getElementById('error-message').textContent =
               "Colunas obrigatórias ausentes no CSV. O arquivo deve conter as colunas: SUBORDINAÇÃO, UNIDADE e SIGLA";
             return;
           }
@@ -235,15 +235,15 @@
           drawChart(hierarchy);
         } catch (error) {
           console.error("Erro ao processar CSV:", error);
-          document.getElementById('error-message').textContent = 
+          document.getElementById('error-message').textContent =
             `Erro ao processar o arquivo CSV: ${error.message}`;
         }
       };
-      
+
       reader.onerror = function() {
         document.getElementById('error-message').textContent = "Erro ao ler o arquivo CSV.";
       };
-      
+
       // Definir o encoding correto para Windows-1252
       reader.readAsText(file, "Windows-1252");
     }
@@ -326,7 +326,7 @@
         let line = [];
         let lineNumber = 0;
         let word;
-        
+
         while (word = words.pop()) {
           line.push(word);
           tspan.text(line.join(" "));
@@ -349,15 +349,19 @@
       const nodes = treeData.descendants();
       const links = treeData.descendants().slice(1);
 
-      nodes.forEach(d => { 
+      nodes.forEach(d => {
         d.y = d.depth * 400;
-        
+
         if (d.parent) {
           const siblings = d.parent.children;
           const index = siblings.indexOf(d);
           const totalSiblings = siblings.length;
-          
-          if (totalSiblings > 1) {
+
+          if (totalSiblings === 1) {
+            // Se for filho único, posiciona diretamente abaixo do pai
+            d.x = d.parent.x;
+          } else if (totalSiblings > 1) {
+            // Se houver múltiplos filhos, mantém o espaçamento entre eles
             const siblingSpacing = 400;
             const totalWidth = (totalSiblings - 1) * siblingSpacing;
             const startX = d.parent.x - totalWidth / 2;
@@ -533,6 +537,108 @@
         .call(zoom.transform, d3.zoomIdentity);
     }
 
+    // Carregar o arquivo CSV do Dropbox
+    window.addEventListener('load', function() {
+      const sharedUrl = "https://www.dropbox.com/scl/fi/3dkalsunnigmjwspk4noh/CDA.csv?rlkey=cnlds778gej7243ikvkwdqpoa&st=2bsnoxc3&dl=0";
+      const downloadUrl = sharedUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('&dl=0', '&dl=1');
+      
+      console.log("Tentando carregar arquivo do Dropbox:", downloadUrl);
+      
+      fetch(downloadUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/csv',
+          'Content-Type': 'text/csv; charset=utf-8'
+        }
+      })
+        .then(response => {
+          console.log("Status da resposta:", response.status);
+          console.log("Headers da resposta:", Object.fromEntries(response.headers));
+          
+          if (!response.ok) {
+            throw new Error(`Arquivo não encontrado no Dropbox (Status: ${response.status})`);
+          }
+          const decoder = new TextDecoder('iso-8859-1'); // Decoder para Windows-1252/ISO-8859-1
+          return response.arrayBuffer().then(buffer => {
+            const decoded = decoder.decode(buffer);
+            console.log("Primeiros caracteres decodificados:", decoded.substring(0, 100));
+            return decoded;
+          });
+        })
+        .then(csvData => {
+          try {
+            console.log("Conteúdo CSV bruto:", csvData.substring(0, 200) + "..."); // Mostrar início do arquivo
+            const data = d3.csvParse(csvData);
+            console.log("Colunas encontradas:", data.columns);
+
+            if (!data || data.length === 0) {
+              throw new Error("Arquivo CSV vazio ou inválido");
+            }
+
+            // Verificar se as colunas necessárias existem (mais flexível com os nomes)
+            const columns = data.columns.map(col => col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
+            console.log("Colunas normalizadas:", columns);
+
+            const hasSubordinacao = columns.some(col =>
+              col.includes("SUB") ||
+              col.includes("SUBORDINACAO") ||
+              col.includes("SUBORDINAÇÃO") ||
+              col.includes("SUBORDINAO")
+            );
+            const hasUnidade = columns.some(col =>
+              col.includes("UNI") ||
+              col.includes("UNIDADE") ||
+              col.includes("NOME")
+            );
+            const hasSigla = columns.some(col =>
+              col.includes("SIG") ||
+              col.includes("SIGLA") ||
+              col.includes("ABREV")
+            );
+
+            console.log("Verificação de colunas:", {
+              hasSubordinacao,
+              hasUnidade,
+              hasSigla
+            });
+
+            if (!hasSubordinacao || !hasUnidade || !hasSigla) {
+              throw new Error(`Colunas obrigatórias ausentes no CSV. Encontradas: ${columns.join(", ")}`);
+            }
+
+            // Mapear os nomes das colunas para os nomes esperados
+            const subordinacaoCol = data.columns.find(col =>
+              col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").includes("SUB")
+            );
+            const unidadeCol = data.columns.find(col =>
+              col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").includes("UNI")
+            );
+            const siglaCol = data.columns.find(col =>
+              col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").includes("SIG")
+            );
+
+            // Normalizar os dados para usar os nomes de colunas corretos
+            const normalizedData = data.map(d => ({
+              "SUBORDINAÇÃO": d[subordinacaoCol],
+              "UNIDADE": d[unidadeCol],
+              "SIGLA": d[siglaCol]
+            }));
+
+            const hierarchy = buildHierarchy(normalizedData);
+            drawChart(hierarchy);
+          } catch (error) {
+            console.error("Erro ao processar CSV:", error);
+            document.getElementById('error-message').textContent =
+              `Erro ao processar o arquivo CSV: ${error.message}`;
+          }
+        })
+        .catch(function(error) {
+          console.error("Erro ao carregar arquivo:", error);
+          document.getElementById('error-message').textContent =
+            "Erro ao carregar o arquivo CSV do Dropbox. Por favor, verifique se o arquivo está acessível e público.";
+        });
+    });
+
     document.getElementById('expand-all-btn').addEventListener('click', function() {
       if (root) {
         console.log("Expandindo todos os nós");
@@ -558,105 +664,6 @@
     document.getElementById('zoomIn-btn').addEventListener('click', zoomIn);
     document.getElementById('zoomOut-btn').addEventListener('click', zoomOut);
     document.getElementById('resetZoom-btn').addEventListener('click', resetZoom);
-
-    // Carregar o arquivo CSV do Dropbox
-    window.addEventListener('load', function() {
-      // Converter a URL de compartilhamento para URL de download direta
-      const sharedUrl = "https://www.dropbox.com/scl/fi/3dkalsunnigmjwspk4noh/CDA.csv?rlkey=cnlds778gej7243ikvkwdqpoa&st=2bsnoxc3&dl=0";
-      const downloadUrl = sharedUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('&dl=0', '&dl=1');
-      
-      fetch(downloadUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'text/csv',
-          'Content-Type': 'text/csv; charset=Windows-1252'
-        },
-        mode: 'cors'
-      })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`Erro HTTP: ${response.status}`);
-          }
-          return response.text();
-        })
-        .then(csvData => {
-          try {
-            // Verificar se o conteúdo está vazio
-            if (!csvData || csvData.trim() === '') {
-              throw new Error("O arquivo CSV está vazio");
-            }
-
-            console.log("Conteúdo CSV bruto:", csvData.substring(0, 200) + "..."); // Mostrar início do arquivo
-            const data = d3.csvParse(csvData);
-            console.log("Colunas encontradas:", data.columns);
-            
-            if (!data || data.length === 0) {
-              throw new Error("Arquivo CSV vazio ou inválido");
-            }
-
-            // Verificar se as colunas necessárias existem (mais flexível com os nomes)
-            const columns = data.columns.map(col => col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
-            console.log("Colunas normalizadas:", columns);
-
-            const hasSubordinacao = columns.some(col => 
-              col.includes("SUB") || 
-              col.includes("SUBORDINACAO") || 
-              col.includes("SUBORDINAÇÃO") ||
-              col.includes("SUBORDINAO")
-            );
-            const hasUnidade = columns.some(col => 
-              col.includes("UNI") || 
-              col.includes("UNIDADE") || 
-              col.includes("NOME")
-            );
-            const hasSigla = columns.some(col => 
-              col.includes("SIG") || 
-              col.includes("SIGLA") || 
-              col.includes("ABREV")
-            );
-
-            console.log("Verificação de colunas:", {
-              hasSubordinacao,
-              hasUnidade,
-              hasSigla
-            });
-
-            if (!hasSubordinacao || !hasUnidade || !hasSigla) {
-              throw new Error(`Colunas obrigatórias ausentes no CSV. Encontradas: ${columns.join(", ")}`);
-            }
-
-            // Mapear os nomes das colunas para os nomes esperados
-            const subordinacaoCol = data.columns.find(col => 
-              col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").includes("SUB")
-            );
-            const unidadeCol = data.columns.find(col => 
-              col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").includes("UNI")
-            );
-            const siglaCol = data.columns.find(col => 
-              col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").includes("SIG")
-            );
-
-            // Normalizar os dados para usar os nomes de colunas corretos
-            const normalizedData = data.map(d => ({
-              "SUBORDINAÇÃO": d[subordinacaoCol],
-              "UNIDADE": d[unidadeCol],
-              "SIGLA": d[siglaCol]
-            }));
-
-            const hierarchy = buildHierarchy(normalizedData);
-            drawChart(hierarchy);
-          } catch (error) {
-            console.error("Erro ao processar CSV:", error);
-            document.getElementById('error-message').textContent = 
-              `Erro ao processar o arquivo CSV: ${error.message}`;
-          }
-        })
-        .catch(function(error) {
-          console.error("Erro ao carregar arquivo:", error);
-          document.getElementById('error-message').textContent = 
-            "Erro ao carregar o arquivo CSV do Dropbox. Por favor, verifique se o arquivo está acessível e público.";
-        });
-    });
   </script>
 </body>
 </html>
