@@ -7,8 +7,8 @@
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://d3js.org https://cdnjs.cloudflare.com;
     style-src 'self' 'unsafe-inline';
-    img-src 'self' data: blob: https://raw.githubusercontent.com;
-    connect-src 'self' blob: https://raw.githubusercontent.com;
+    img-src 'self' data: blob:;
+    connect-src 'self' data: blob: https://*.dropboxusercontent.com;
   ">
   <style>
     body {
@@ -116,50 +116,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <script>
-    // Carregar o arquivo CSV automaticamente ao iniciar
-    window.addEventListener('load', function() {
-      // URL do arquivo no GitHub - substitua com seu usuário/repositório
-      const csvUrl = "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/CDA11_BACKUP(in) (4)";
-      
-      // Adicionar tratamento de erro mais detalhado
-      d3.csv(csvUrl)
-        .then(function(data) {
-          if (!data || data.length === 0) {
-            throw new Error("Arquivo CSV vazio ou inválido");
-          }
-          
-          // Verificar se as colunas necessárias existem
-          const columns = Object.keys(data[0]).map(col => col.normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
-          const hasSubordinacao = columns.some(col => 
-            col.toUpperCase() === "SUBORDINACAO" || 
-            col.toUpperCase() === "SUBORDINAÇÃO" || 
-            col.toUpperCase() === "SUBORDINAO"
-          );
-          const hasUnidade = columns.some(col => col.toUpperCase() === "UNIDADE");
-          const hasSigla = columns.some(col => col.toUpperCase() === "SIGLA");
-
-          if (!hasSubordinacao || !hasUnidade || !hasSigla) {
-            throw new Error("Colunas obrigatórias ausentes no CSV");
-          }
-
-          // Normalizar os nomes das colunas no objeto data
-          data.forEach(d => {
-            if (d["SUBORDINAO"]) {
-              d["SUBORDINAÇÃO"] = d["SUBORDINAO"];
-              delete d["SUBORDINAO"];
-            }
-          });
-
-          const hierarchy = buildHierarchy(data);
-          drawChart(hierarchy);
-        })
-        .catch(function(error) {
-          console.error("Erro ao carregar dados:", error);
-          document.getElementById('error-message').textContent = 
-            "Erro ao carregar o arquivo CSV. Por favor, verifique se o arquivo está acessível e no formato correto. " + error.message;
-        });
-    });
-
     const margin = {top: 40, right: 150, bottom: 40, left: 150},
           width = 3600 - margin.left - margin.right,
           height = 1200 - margin.top - margin.bottom;
@@ -174,8 +130,7 @@
       const root = {
         name: "Ministério da Saúde",
         sigla: "MS",
-        children: [],
-        image: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0NSIgZmlsbD0iIzJDNzNCNCIvPjx0ZXh0IHg9IjUwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQwIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+TVM8L3RleHQ+PC9zdmc+" // Logo MS em SVG base64
+        children: []
       };
       
       const nodeMap = {};
@@ -198,11 +153,6 @@
           sigla: d["SIGLA"] || "",
           children: []
         };
-
-        // Adicionar imagem à Secretaria-Executiva
-        if (d["UNIDADE"] === "Secretaria-Executiva") {
-          node.image = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MDAgNTAwIj48cmVjdCB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iIzJFNzUyOCIvPjxwYXRoIGQ9Ik0xNTAgMTUwIHYxMDAgaDEwMCB2LTEwMCBoLTEwMCB6IE0yNTAgMTUwIHYxMDAgaDEwMCB2LTEwMCBoLTEwMCB6IE0xNTAgMjUwIHYxMDAgaDEwMCB2LTEwMCBoLTEwMCB6IE0yNTAgMjUwIHYxMDAgaDEwMCB2LTEwMCBoLTEwMCB6IiBmaWxsPSJ3aGl0ZSIvPjxwYXRoIGQ9Ik0xNTAgMTUwIGwxMDAgMCBsMCAxMDAgbC0xMDAgMCB6IE0yNTAgMTUwIGwxMDAgMCBsMCAxMDAgbC0xMDAgMCB6IE0xNTAgMjUwIGwxMDAgMCBsMCAxMDAgbC0xMDAgMCB6IE0yNTAgMjUwIGwxMDAgMCBsMCAxMDAgbC0xMDAgMCB6IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48cGF0aCBkPSJNMjUwIDE1MCBjMTAgMCAxMCAxMCAwIDEwIGwtMTAgMCBjLTEwIDAgLTEwIC0xMCAwIC0xMCB6IE0yNTAgMjUwIGMxMCAwIDEwIDEwIDAgMTAgbC0xMCAwIGMtMTAgMCAtMTAgLTEwIDAgLTEwIHogTTI1MCAxNTAgYzEwIDAgMTAgMTAgMCAxMCBsLTEwIDAgYy0xMCAwIC0xMCAtMTAgMCAtMTAgeiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=";
-        }
 
         // Se a subordinação for 1, adiciona diretamente como filho da raiz
         if (sub === "1") {
@@ -234,6 +184,68 @@
 
       console.log("Hierarquia construída:", root);
       return root;
+    }
+
+    function loadCSVFile() {
+      const fileInput = document.getElementById('file-input');
+      const file = fileInput.files[0];
+      
+      if (!file) {
+        document.getElementById('error-message').textContent = "Por favor, selecione um arquivo CSV.";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const csvData = event.target.result;
+        try {
+          const data = d3.csvParse(csvData);
+          console.log("CSV parseado:", data);
+          
+          if (!data || data.length === 0) {
+            document.getElementById('error-message').textContent = "Arquivo CSV vazio ou inválido.";
+            return;
+          }
+
+          // Verificar se as colunas necessárias existem (considerando possíveis encodings diferentes)
+          const columns = data.columns.map(col => col.normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
+          const hasSubordinacao = columns.some(col => 
+            col.toUpperCase() === "SUBORDINACAO" || 
+            col.toUpperCase() === "SUBORDINAÇÃO" || 
+            col.toUpperCase() === "SUBORDINAO"
+          );
+          const hasUnidade = columns.some(col => col.toUpperCase() === "UNIDADE");
+          const hasSigla = columns.some(col => col.toUpperCase() === "SIGLA");
+
+          if (!hasSubordinacao || !hasUnidade || !hasSigla) {
+            document.getElementById('error-message').textContent = 
+              "Colunas obrigatórias ausentes no CSV. O arquivo deve conter as colunas: SUBORDINAÇÃO, UNIDADE e SIGLA";
+            return;
+          }
+
+          // Normalizar os nomes das colunas no objeto data
+          data.forEach(d => {
+            if (d["SUBORDINAO"]) {
+              d["SUBORDINAÇÃO"] = d["SUBORDINAO"];
+              delete d["SUBORDINAO"];
+            }
+          });
+
+          const hierarchy = buildHierarchy(data);
+          drawChart(hierarchy);
+        } catch (error) {
+          console.error("Erro ao processar CSV:", error);
+          document.getElementById('error-message').textContent = 
+            `Erro ao processar o arquivo CSV: ${error.message}`;
+        }
+      };
+      
+      reader.onerror = function() {
+        document.getElementById('error-message').textContent = "Erro ao ler o arquivo CSV.";
+      };
+      
+      // Definir o encoding correto para Windows-1252
+      reader.readAsText(file, "Windows-1252");
     }
 
     function drawChart(builtHierarchy) {
@@ -361,19 +373,6 @@
           .attr('class', d => `node depth-${d.depth}`)
           .attr("transform", d => `translate(${source.x0},${source.y0})`);
 
-      // Adicionar imagens acima das caixas
-      const imageGroup = nodeEnter.append('g')
-          .attr('class', 'image-group')
-          .style('display', d => d.data.image ? null : 'none');
-
-      imageGroup.append('image')
-          .attr('x', d => -40) // Aumentado para centralizar melhor
-          .attr('y', d => -calculateNodeSize(d).height/2 - 90) // Aumentado o espaço acima da caixa
-          .attr('width', 80) // Aumentado o tamanho
-          .attr('height', 80) // Aumentado o tamanho
-          .attr('href', d => d.data.image)
-          .style('opacity', 1); // Garantir que a imagem seja visível
-
       nodeEnter.append('rect')
           .attr('width', d => calculateNodeSize(d).width)
           .attr('height', d => calculateNodeSize(d).height)
@@ -447,10 +446,6 @@
           .duration(duration)
           .attr("transform", d => `translate(${d.x},${d.y})`);
 
-      // Atualizar posição das imagens durante a transição
-      nodeUpdate.select('.image-group')
-          .style('display', d => d.data.image ? null : 'none');
-
       nodeUpdate.select("rect")
           .style("fill", d => d._children ? "lightsteelblue" : "#fff");
 
@@ -512,13 +507,7 @@
     }
 
     function downloadSVG() {
-      const svgElement = document.querySelector("#chart-container svg");
-      if (!svgElement) {
-        console.error("Elemento SVG não encontrado");
-        return;
-      }
-      
-      const svgData = svgElement.outerHTML;
+      const svgData = document.querySelector("#chart-container svg").outerHTML;
       const svgBlob = new Blob([svgData], {type: "image/svg+xml;charset=utf-8"});
       const svgUrl = URL.createObjectURL(svgBlob);
       const downloadLink = document.createElement("a");
@@ -527,7 +516,6 @@
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(svgUrl);
     }
 
     function zoomIn() {
@@ -570,6 +558,96 @@
     document.getElementById('zoomIn-btn').addEventListener('click', zoomIn);
     document.getElementById('zoomOut-btn').addEventListener('click', zoomOut);
     document.getElementById('resetZoom-btn').addEventListener('click', resetZoom);
+
+    // Carregar o arquivo CSV do Dropbox
+    window.addEventListener('load', function() {
+      const dropboxUrl = "https://dl.dropboxusercontent.com/scl/fi/3dkalsunnigmjwspk4noh/CDA.csv?rlkey=cnlds778gej7243ikvkwdqpoa&dl=1";
+      
+      fetch(dropboxUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/csv'
+        }
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Arquivo não encontrado no Dropbox");
+          }
+          return response.text();
+        })
+        .then(csvData => {
+          try {
+            console.log("Conteúdo CSV bruto:", csvData.substring(0, 200) + "..."); // Mostrar início do arquivo
+            const data = d3.csvParse(csvData);
+            console.log("Colunas encontradas:", data.columns);
+            
+            if (!data || data.length === 0) {
+              throw new Error("Arquivo CSV vazio ou inválido");
+            }
+
+            // Verificar se as colunas necessárias existem (mais flexível com os nomes)
+            const columns = data.columns.map(col => col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
+            console.log("Colunas normalizadas:", columns);
+
+            const hasSubordinacao = columns.some(col => 
+              col.includes("SUB") || 
+              col.includes("SUBORDINACAO") || 
+              col.includes("SUBORDINAÇÃO") ||
+              col.includes("SUBORDINAO")
+            );
+            const hasUnidade = columns.some(col => 
+              col.includes("UNI") || 
+              col.includes("UNIDADE") || 
+              col.includes("NOME")
+            );
+            const hasSigla = columns.some(col => 
+              col.includes("SIG") || 
+              col.includes("SIGLA") || 
+              col.includes("ABREV")
+            );
+
+            console.log("Verificação de colunas:", {
+              hasSubordinacao,
+              hasUnidade,
+              hasSigla
+            });
+
+            if (!hasSubordinacao || !hasUnidade || !hasSigla) {
+              throw new Error(`Colunas obrigatórias ausentes no CSV. Encontradas: ${columns.join(", ")}`);
+            }
+
+            // Mapear os nomes das colunas para os nomes esperados
+            const subordinacaoCol = data.columns.find(col => 
+              col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").includes("SUB")
+            );
+            const unidadeCol = data.columns.find(col => 
+              col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").includes("UNI")
+            );
+            const siglaCol = data.columns.find(col => 
+              col.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "").includes("SIG")
+            );
+
+            // Normalizar os dados para usar os nomes de colunas corretos
+            const normalizedData = data.map(d => ({
+              "SUBORDINAÇÃO": d[subordinacaoCol],
+              "UNIDADE": d[unidadeCol],
+              "SIGLA": d[siglaCol]
+            }));
+
+            const hierarchy = buildHierarchy(normalizedData);
+            drawChart(hierarchy);
+          } catch (error) {
+            console.error("Erro ao processar CSV:", error);
+            document.getElementById('error-message').textContent = 
+              `Erro ao processar o arquivo CSV: ${error.message}`;
+          }
+        })
+        .catch(function(error) {
+          console.error("Erro ao carregar arquivo:", error);
+          document.getElementById('error-message').textContent = 
+            "Erro ao carregar o arquivo CSV do Dropbox. Por favor, verifique se o arquivo está acessível e público.";
+        });
+    });
   </script>
 </body>
 </html>
