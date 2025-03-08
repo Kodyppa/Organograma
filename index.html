@@ -7,7 +7,8 @@
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://d3js.org https://cdnjs.cloudflare.com;
     style-src 'self' 'unsafe-inline';
-    img-src 'self' data:;
+    img-src 'self' data: blob: https://raw.githubusercontent.com;
+    connect-src 'self' blob: https://raw.githubusercontent.com;
   ">
   <style>
     body {
@@ -103,7 +104,6 @@
   <div id="error-message"></div>
 
   <div class="controls">
-    <input type="file" id="file-input" accept=".csv" style="margin-bottom: 10px; display: block;">
     <button id="expand-all-btn">Expandir Todos</button>
     <button id="collapse-all-btn">Recolher Todos</button>
     <button id="download-btn">Baixar SVG</button>
@@ -116,6 +116,50 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <script>
+    // Carregar o arquivo CSV automaticamente ao iniciar
+    window.addEventListener('load', function() {
+      // URL do arquivo no GitHub - substitua com seu usuário/repositório
+      const csvUrl = "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/CDA11_BACKUP(in) (4)";
+      
+      // Adicionar tratamento de erro mais detalhado
+      d3.csv(csvUrl)
+        .then(function(data) {
+          if (!data || data.length === 0) {
+            throw new Error("Arquivo CSV vazio ou inválido");
+          }
+          
+          // Verificar se as colunas necessárias existem
+          const columns = Object.keys(data[0]).map(col => col.normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
+          const hasSubordinacao = columns.some(col => 
+            col.toUpperCase() === "SUBORDINACAO" || 
+            col.toUpperCase() === "SUBORDINAÇÃO" || 
+            col.toUpperCase() === "SUBORDINAO"
+          );
+          const hasUnidade = columns.some(col => col.toUpperCase() === "UNIDADE");
+          const hasSigla = columns.some(col => col.toUpperCase() === "SIGLA");
+
+          if (!hasSubordinacao || !hasUnidade || !hasSigla) {
+            throw new Error("Colunas obrigatórias ausentes no CSV");
+          }
+
+          // Normalizar os nomes das colunas no objeto data
+          data.forEach(d => {
+            if (d["SUBORDINAO"]) {
+              d["SUBORDINAÇÃO"] = d["SUBORDINAO"];
+              delete d["SUBORDINAO"];
+            }
+          });
+
+          const hierarchy = buildHierarchy(data);
+          drawChart(hierarchy);
+        })
+        .catch(function(error) {
+          console.error("Erro ao carregar dados:", error);
+          document.getElementById('error-message').textContent = 
+            "Erro ao carregar o arquivo CSV. Por favor, verifique se o arquivo está acessível e no formato correto. " + error.message;
+        });
+    });
+
     const margin = {top: 40, right: 150, bottom: 40, left: 150},
           width = 3600 - margin.left - margin.right,
           height = 1200 - margin.top - margin.bottom;
@@ -190,68 +234,6 @@
 
       console.log("Hierarquia construída:", root);
       return root;
-    }
-
-    function loadCSVFile() {
-      const fileInput = document.getElementById('file-input');
-      const file = fileInput.files[0];
-      
-      if (!file) {
-        document.getElementById('error-message').textContent = "Por favor, selecione um arquivo CSV.";
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const csvData = event.target.result;
-        try {
-          const data = d3.csvParse(csvData);
-          console.log("CSV parseado:", data);
-          
-          if (!data || data.length === 0) {
-            document.getElementById('error-message').textContent = "Arquivo CSV vazio ou inválido.";
-            return;
-          }
-
-          // Verificar se as colunas necessárias existem (considerando possíveis encodings diferentes)
-          const columns = data.columns.map(col => col.normalize('NFD').replace(/[\u0300-\u036f]/g, ""));
-          const hasSubordinacao = columns.some(col => 
-            col.toUpperCase() === "SUBORDINACAO" || 
-            col.toUpperCase() === "SUBORDINAÇÃO" || 
-            col.toUpperCase() === "SUBORDINAO"
-          );
-          const hasUnidade = columns.some(col => col.toUpperCase() === "UNIDADE");
-          const hasSigla = columns.some(col => col.toUpperCase() === "SIGLA");
-
-          if (!hasSubordinacao || !hasUnidade || !hasSigla) {
-            document.getElementById('error-message').textContent = 
-              "Colunas obrigatórias ausentes no CSV. O arquivo deve conter as colunas: SUBORDINAÇÃO, UNIDADE e SIGLA";
-            return;
-          }
-
-          // Normalizar os nomes das colunas no objeto data
-          data.forEach(d => {
-            if (d["SUBORDINAO"]) {
-              d["SUBORDINAÇÃO"] = d["SUBORDINAO"];
-              delete d["SUBORDINAO"];
-            }
-          });
-
-          const hierarchy = buildHierarchy(data);
-          drawChart(hierarchy);
-        } catch (error) {
-          console.error("Erro ao processar CSV:", error);
-          document.getElementById('error-message').textContent = 
-            `Erro ao processar o arquivo CSV: ${error.message}`;
-        }
-      };
-      
-      reader.onerror = function() {
-        document.getElementById('error-message').textContent = "Erro ao ler o arquivo CSV.";
-      };
-      
-      // Definir o encoding correto para Windows-1252
-      reader.readAsText(file, "Windows-1252");
     }
 
     function drawChart(builtHierarchy) {
@@ -530,7 +512,13 @@
     }
 
     function downloadSVG() {
-      const svgData = document.querySelector("#chart-container svg").outerHTML;
+      const svgElement = document.querySelector("#chart-container svg");
+      if (!svgElement) {
+        console.error("Elemento SVG não encontrado");
+        return;
+      }
+      
+      const svgData = svgElement.outerHTML;
       const svgBlob = new Blob([svgData], {type: "image/svg+xml;charset=utf-8"});
       const svgUrl = URL.createObjectURL(svgBlob);
       const downloadLink = document.createElement("a");
@@ -539,6 +527,7 @@
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(svgUrl);
     }
 
     function zoomIn() {
@@ -556,7 +545,6 @@
         .call(zoom.transform, d3.zoomIdentity);
     }
 
-    document.getElementById('file-input').addEventListener('change', loadCSVFile);
     document.getElementById('expand-all-btn').addEventListener('click', function() {
       if (root) {
         console.log("Expandindo todos os nós");
