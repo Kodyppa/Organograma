@@ -561,14 +561,15 @@
 
     // Carregar o arquivo CSV do Dropbox
     window.addEventListener('load', function() {
-      const dropboxUrl = "https://dl.dropboxusercontent.com/scl/fi/3dkalsunnigmjwspk4noh/CDA.csv?rlkey=cnlds778gej7243ikvkwdqpoa&dl=1";
+      // Converter a URL de compartilhamento para URL de download direta
+      const sharedUrl = "https://www.dropbox.com/scl/fi/3dkalsunnigmjwspk4noh/CDA.csv?rlkey=cnlds778gej7243ikvkwdqpoa&st=2bsnoxc3&dl=0";
+      const downloadUrl = sharedUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('&dl=0', '&dl=1');
       
-      fetch(dropboxUrl, {
+      fetch(downloadUrl, {
         method: 'GET',
         headers: {
           'Accept': 'text/csv',
-          'Content-Type': 'text/csv; charset=Windows-1252',
-          'Access-Control-Allow-Origin': '*'
+          'Content-Type': 'text/csv; charset=Windows-1252'
         },
         mode: 'cors'
       })
